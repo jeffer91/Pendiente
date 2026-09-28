@@ -1,12 +1,9 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import {
-  createUserWithEmailAndPassword,
   getAuth,
   inMemoryPersistence,
-  onAuthStateChanged,
   setPersistence,
-  signInWithEmailAndPassword,
-  signOut
+  signInAnonymously
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import {
   addDoc,
@@ -29,16 +26,6 @@ import { PROCESS_CATALOG, flatCatalog } from './catalog.js';
 const $ = (selector) => document.querySelector(selector);
 const elements = {
   setupBanner: $('#setupBanner'),
-  authView: $('#authView'),
-  appView: $('#appView'),
-  authForm: $('#authForm'),
-  authEmail: $('#authEmail'),
-  authPassword: $('#authPassword'),
-  authMessage: $('#authMessage'),
-  loginButton: $('#loginButton'),
-  registerButton: $('#registerButton'),
-  logoutButton: $('#logoutButton'),
-  userEmail: $('#userEmail'),
   syncState: $('#syncState'),
   searchInput: $('#searchInput'),
   unitFilter: $('#unitFilter'),
@@ -76,10 +63,11 @@ const elements = {
 };
 
 const state = {
-  user: null,
   tasks: [],
   unsubscribe: null,
-  firebase: null
+  firebase: null,
+  cloudReady: false,
+  anonymousUid: null
 };
 
 const STATUS_META = {
@@ -112,7 +100,7 @@ function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.remove('hidden');
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => elements.toast.classList.add('hidden'), 2800);
+  showToast.timer = setTimeout(() => elements.toast.classList.add('hidden'), 3000);
 }
 
 function setBusy(button, busy, busyText = 'Procesando…') {
@@ -131,6 +119,12 @@ function setSyncState(text, mode = '') {
   elements.syncState.textContent = text;
   elements.syncState.classList.remove('online', 'error');
   if (mode) elements.syncState.classList.add(mode);
+}
+
+function ensureCloudReady() {
+  if (state.cloudReady && state.firebase?.db) return true;
+  showToast('Falta conectar Firebase para guardar o modificar información.');
+  return false;
 }
 
 function isOverdue(task) {
@@ -267,11 +261,13 @@ function resetTaskForm() {
 }
 
 function openNewTask() {
+  if (!ensureCloudReady()) return;
   resetTaskForm();
   elements.taskDialog.showModal();
 }
 
 function openEditTask(taskId) {
+  if (!ensureCloudReady()) return;
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   resetTaskForm();
@@ -298,9 +294,13 @@ function getProcessMeta(processCode) {
   return PROCESS_CATALOG.find((item) => item.processCode === processCode);
 }
 
+function tasksCollection() {
+  return collection(state.firebase.db, 'pendientes');
+}
+
 async function saveTask(event) {
   event.preventDefault();
-  if (!state.user || !state.firebase) return;
+  if (!ensureCloudReady()) return;
 
   const process = getProcessMeta(elements.taskProcess.value);
   const payload = {
@@ -313,7 +313,7 @@ async function saveTask(event) {
     priority: elements.taskPriority.value,
     dueDate: elements.taskDueDate.value,
     notes: elements.taskNotes.value.trim(),
-    ownerId: state.user.uid,
+    updatedBy: state.anonymousUid || '',
     updatedAt: serverTimestamp()
   };
 
@@ -326,12 +326,17 @@ async function saveTask(event) {
   elements.taskMessage.textContent = '';
 
   try {
-    const taskCollection = collection(state.firebase.db, 'users', state.user.uid, 'pendientes');
+    const taskCollection = tasksCollection();
     if (elements.taskId.value) {
       await updateDoc(doc(taskCollection, elements.taskId.value), payload);
       showToast('Pendiente actualizado.');
     } else {
-      await addDoc(taskCollection, { ...payload, createdAt: serverTimestamp(), source: 'manual' });
+      await addDoc(taskCollection, {
+        ...payload,
+        createdBy: state.anonymousUid || '',
+        createdAt: serverTimestamp(),
+        source: 'manual'
+      });
       showToast('Pendiente creado.');
     }
     closeTaskDialog();
@@ -344,13 +349,14 @@ async function saveTask(event) {
 }
 
 async function removeTask(taskId) {
-  if (!state.user || !state.firebase) return;
+  if (!ensureCloudReady()) return;
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   const accepted = window.confirm(`¿Eliminar “${task.documentName}”?`);
   if (!accepted) return;
+
   try {
-    await deleteDoc(doc(state.firebase.db, 'users', state.user.uid, 'pendientes', taskId));
+    await deleteDoc(doc(tasksCollection(), taskId));
     showToast('Pendiente eliminado.');
   } catch (error) {
     console.error(error);
@@ -359,10 +365,11 @@ async function removeTask(taskId) {
 }
 
 async function loadCatalog() {
-  if (!state.user || !state.firebase) return;
+  if (!ensureCloudReady()) return;
   setBusy(elements.loadCatalogButton, true, 'Cargando…');
+
   try {
-    const taskCollection = collection(state.firebase.db, 'users', state.user.uid, 'pendientes');
+    const taskCollection = tasksCollection();
     const snapshot = await getDocs(taskCollection);
     const existingCatalogIds = new Set(snapshot.docs.map((item) => item.data().catalogId).filter(Boolean));
     const missing = flatCatalog.filter((item) => !existingCatalogIds.has(item.catalogId));
@@ -381,12 +388,14 @@ async function loadCatalog() {
         priority: 'media',
         dueDate: '',
         notes: item.processNote || '',
-        ownerId: state.user.uid,
+        createdBy: state.anonymousUid || '',
+        updatedBy: state.anonymousUid || '',
         source: 'catalogo',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }, { merge: true });
     });
+
     await batch.commit();
     showToast(`${missing.length} documentos del catálogo cargados.`);
   } catch (error) {
@@ -403,6 +412,7 @@ function exportCsv() {
     showToast('No hay registros para exportar.');
     return;
   }
+
   const headers = ['Unidad', 'Proceso', 'Nombre del proceso', 'Documento', 'Código', 'Estado', 'Prioridad', 'Fecha límite', 'Notas'];
   const rows = tasks.map((task) => [
     task.unit,
@@ -415,6 +425,7 @@ function exportCsv() {
     task.dueDate,
     task.notes
   ]);
+
   const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const csv = '\ufeff' + [headers, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -431,84 +442,34 @@ function exportCsv() {
 function friendlyFirebaseError(error) {
   const code = error?.code || '';
   const map = {
-    'auth/invalid-credential': 'Correo o contraseña incorrectos.',
-    'auth/email-already-in-use': 'Ese correo ya tiene una cuenta.',
-    'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
-    'auth/invalid-email': 'El correo electrónico no es válido.',
-    'auth/operation-not-allowed': 'Habilita Email/Password en Firebase Authentication.',
-    'permission-denied': 'Firestore rechazó la operación. Revisa las reglas de seguridad.',
-    'failed-precondition': 'Firestore todavía no está habilitado o requiere configuración.'
+    'auth/operation-not-allowed': 'Habilita el proveedor Anónimo en Firebase Authentication.',
+    'auth/admin-restricted-operation': 'El acceso anónimo está deshabilitado en Firebase Authentication.',
+    'permission-denied': 'Firestore rechazó la operación. Publica las reglas incluidas en firestore.rules.',
+    'failed-precondition': 'Firestore todavía no está habilitado o requiere configuración.',
+    'unavailable': 'No se pudo conectar con Firebase. Revisa la conexión a internet.'
   };
   return map[code] || error?.message || 'Ocurrió un error inesperado.';
 }
 
 function subscribeTasks() {
   if (state.unsubscribe) state.unsubscribe();
-  const taskCollection = collection(state.firebase.db, 'users', state.user.uid, 'pendientes');
-  const taskQuery = query(taskCollection, orderBy('updatedAt', 'desc'));
+
+  const taskQuery = query(tasksCollection(), orderBy('updatedAt', 'desc'));
   setSyncState('Sincronizando…');
+
   state.unsubscribe = onSnapshot(taskQuery, (snapshot) => {
     state.tasks = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
     setSyncState('En línea', 'online');
     render();
   }, (error) => {
     console.error(error);
+    state.cloudReady = false;
     setSyncState('Error de sincronización', 'error');
     showToast(friendlyFirebaseError(error));
   });
 }
 
-async function handleLogin(event) {
-  event.preventDefault();
-  if (!firebaseConfigured || !state.firebase) {
-    elements.authMessage.textContent = 'Primero configura Firebase en firebase-config.js.';
-    return;
-  }
-  setBusy(elements.loginButton, true, 'Ingresando…');
-  elements.authMessage.textContent = '';
-  try {
-    await setPersistence(state.firebase.auth, inMemoryPersistence);
-    await signInWithEmailAndPassword(state.firebase.auth, elements.authEmail.value.trim(), elements.authPassword.value);
-  } catch (error) {
-    elements.authMessage.textContent = friendlyFirebaseError(error);
-  } finally {
-    setBusy(elements.loginButton, false);
-  }
-}
-
-async function handleRegister() {
-  if (!firebaseConfigured || !state.firebase) {
-    elements.authMessage.textContent = 'Primero configura Firebase en firebase-config.js.';
-    return;
-  }
-  const email = elements.authEmail.value.trim();
-  const password = elements.authPassword.value;
-  if (!email || password.length < 6) {
-    elements.authMessage.textContent = 'Ingresa un correo válido y una contraseña de al menos 6 caracteres.';
-    return;
-  }
-  setBusy(elements.registerButton, true, 'Creando…');
-  elements.authMessage.textContent = '';
-  try {
-    await setPersistence(state.firebase.auth, inMemoryPersistence);
-    await createUserWithEmailAndPassword(state.firebase.auth, email, password);
-    showToast('Cuenta creada correctamente.');
-  } catch (error) {
-    elements.authMessage.textContent = friendlyFirebaseError(error);
-  } finally {
-    setBusy(elements.registerButton, false);
-  }
-}
-
-async function handleLogout() {
-  if (!state.firebase) return;
-  await signOut(state.firebase.auth);
-}
-
 function setupEvents() {
-  elements.authForm.addEventListener('submit', handleLogin);
-  elements.registerButton.addEventListener('click', handleRegister);
-  elements.logoutButton.addEventListener('click', handleLogout);
   elements.newTaskButton.addEventListener('click', openNewTask);
   elements.loadCatalogButton.addEventListener('click', loadCatalog);
   elements.exportButton.addEventListener('click', exportCsv);
@@ -536,45 +497,41 @@ function setupEvents() {
   });
 }
 
+async function connectFirebase() {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  await setPersistence(auth, inMemoryPersistence);
+  const credential = await signInAnonymously(auth);
+
+  state.firebase = { app, auth, db };
+  state.anonymousUid = credential.user.uid;
+  state.cloudReady = true;
+  elements.setupBanner.classList.add('hidden');
+  subscribeTasks();
+}
+
 async function init() {
   populateProcessFilter();
   populateTaskProcesses();
   setupEvents();
+  render();
 
   if (!firebaseConfigured) {
     elements.setupBanner.classList.remove('hidden');
-    elements.loginButton.disabled = true;
-    elements.registerButton.disabled = true;
-    elements.authMessage.textContent = 'La interfaz está lista. Falta conectar el proyecto Firebase.';
+    setSyncState('Firebase pendiente', 'error');
     return;
   }
 
   try {
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    state.firebase = { app, auth, db };
-
-    onAuthStateChanged(auth, (user) => {
-      state.user = user;
-      if (user) {
-        elements.authView.classList.add('hidden');
-        elements.appView.classList.remove('hidden');
-        elements.userEmail.textContent = user.email || 'Usuario';
-        subscribeTasks();
-      } else {
-        if (state.unsubscribe) state.unsubscribe();
-        state.unsubscribe = null;
-        state.tasks = [];
-        elements.appView.classList.add('hidden');
-        elements.authView.classList.remove('hidden');
-        render();
-      }
-    });
+    await connectFirebase();
   } catch (error) {
     console.error(error);
+    state.cloudReady = false;
     elements.setupBanner.classList.remove('hidden');
-    elements.authMessage.textContent = friendlyFirebaseError(error);
+    setSyncState('Sin conexión', 'error');
+    showToast(friendlyFirebaseError(error));
   }
 }
 
