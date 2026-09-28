@@ -14,45 +14,12 @@
   <div id="setupBanner" class="setup-banner hidden" role="alert">
     <div>
       <strong>Falta conectar Firebase.</strong>
-      <span>Completa <code>firebase-config.js</code>, habilita Email/Password y crea Cloud Firestore.</span>
+      <span>Completa <code>firebase-config.js</code>, habilita acceso anónimo y crea Cloud Firestore.</span>
     </div>
   </div>
 
   <main class="page-shell">
-    <section id="authView" class="auth-layout">
-      <div class="brand-panel">
-        <div class="brand-mark">P</div>
-        <p class="eyebrow">CONTROL DOCUMENTAL</p>
-        <h1>Pendientes</h1>
-        <p class="brand-copy">Seguimiento en línea de documentos y tareas de los procesos UGPA y UTET.</p>
-        <div class="cloud-note">
-          <span class="cloud-dot"></span>
-          Datos guardados en Cloud Firestore, no en el equipo.
-        </div>
-      </div>
-
-      <div class="auth-card">
-        <p class="eyebrow">ACCESO</p>
-        <h2>Ingresa a tu espacio</h2>
-        <p class="muted">La misma cuenta te permite consultar tus pendientes desde otros equipos.</p>
-
-        <form id="authForm" class="form-stack">
-          <label>
-            Correo electrónico
-            <input id="authEmail" type="email" autocomplete="email" required placeholder="correo@ejemplo.com" />
-          </label>
-          <label>
-            Contraseña
-            <input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres" />
-          </label>
-          <button id="loginButton" class="button primary" type="submit">Ingresar</button>
-          <button id="registerButton" class="button secondary" type="button">Crear cuenta</button>
-          <p id="authMessage" class="form-message" aria-live="polite"></p>
-        </form>
-      </div>
-    </section>
-
-    <section id="appView" class="app-view hidden">
+    <section id="appView" class="app-view">
       <header class="topbar">
         <div>
           <p class="eyebrow">UGPA · UTET</p>
@@ -63,8 +30,7 @@
           <p class="muted compact">Control de documentos por proceso, estado, prioridad y fecha.</p>
         </div>
         <div class="topbar-actions">
-          <span id="userEmail" class="user-chip"></span>
-          <button id="logoutButton" class="button ghost" type="button">Salir</button>
+          <span class="user-chip">Guardado en línea</span>
         </div>
       </header>
 
