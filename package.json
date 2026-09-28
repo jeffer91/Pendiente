@@ -1,0 +1,16 @@
+{
+  "name": "pendiente",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicación de escritorio para el control de pendientes documentales UGPA y UTET.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "author": "Jefferson Villarreal",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}
