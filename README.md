@@ -4,8 +4,6 @@ Aplicación de escritorio en **Electron** para controlar documentos y pendientes
 
 ## Ejecutar en Windows
 
-Después de clonar el repositorio:
-
 ```powershell
 cd C:\Users\ITSQMET\Desktop\Pendiente
 git pull origin main
@@ -13,36 +11,18 @@ npm install
 npm start
 ```
 
-La aplicación se abre en una ventana de Electron.
+La aplicación abre directamente: **no tiene pantalla de login**.
 
-## Qué incluye
+## Guardado
 
-- Catálogo inicial de 19 procesos y 59 documentos.
-- Filtros por unidad, proceso, estado y búsqueda libre.
-- Estados: Pendiente, En proceso, Bloqueado y Completado.
-- Prioridades: Alta, Media y Baja.
-- Fecha límite y detección visual de vencidos.
-- Notas por cada pendiente.
-- Edición y eliminación.
-- Importación del catálogo sin duplicar documentos ya cargados.
-- Exportación CSV.
-- Sincronización en tiempo real con Cloud Firestore.
-- Acceso con Firebase Authentication.
-- Los datos de los pendientes no se guardan en `localStorage`.
+- Los pendientes no se guardan en `localStorage`.
+- Los datos se almacenan en **Cloud Firestore**.
+- La aplicación inicia una sesión anónima de Firebase automáticamente en segundo plano.
+- Todos los equipos conectados al mismo proyecto Firebase consultan la misma colección `pendientes`.
 
-## Arquitectura
+## Configurar Firebase
 
-- Electron: aplicación de escritorio.
-- HTML/CSS/JavaScript: interfaz.
-- Firebase Authentication: acceso de usuarios.
-- Cloud Firestore: almacenamiento y sincronización en línea.
-- `contextIsolation: true`.
-- `nodeIntegration: false`.
-- `sandbox: true`.
-
-## Configuración de Firebase
-
-Para que el guardado en la nube funcione, configura `firebase-config.js` con los datos de una aplicación Web de Firebase:
+Completa `firebase-config.js` con la configuración Web de tu proyecto Firebase:
 
 ```js
 export const firebaseConfig = {
@@ -55,40 +35,31 @@ export const firebaseConfig = {
 };
 ```
 
-Luego:
+Después, en Firebase Console:
 
-1. Habilita **Email/Password** en Firebase Authentication.
-2. Crea una base de datos **Cloud Firestore**.
-3. Publica las reglas incluidas en `firestore.rules`.
+1. Ve a **Authentication > Sign-in method**.
+2. Habilita **Anonymous / Anónimo**. No hace falta Email/Password.
+3. Crea **Cloud Firestore**.
+4. Publica las reglas incluidas en `firestore.rules`.
 
-## Estructura
+## Funciones
 
-- `package.json`: scripts y dependencia de Electron.
-- `main.js`: proceso principal de Electron.
-- `preload.js`: preload aislado.
-- `index.html`: interfaz principal.
-- `styles.css`: estilos.
-- `app.js`: autenticación, filtros, CRUD y sincronización Firestore.
-- `catalog.js`: procesos y documentos UGPA/UTET.
-- `firebase-config.js`: configuración del proyecto Firebase.
-- `firestore.rules`: reglas de seguridad.
+- Catálogo de procesos y documentos UGPA/UTET.
+- Nuevo pendiente.
+- Edición y eliminación.
+- Estados y prioridades.
+- Fechas límite y vencidos.
+- Notas.
+- Búsqueda y filtros.
+- Indicadores.
+- Carga del catálogo sin duplicados.
+- Exportación CSV.
+- Sincronización en tiempo real.
 
-## Comandos
+## Electron
 
-Instalar:
-
-```powershell
-npm install
-```
-
-Abrir la aplicación:
-
-```powershell
-npm start
-```
-
-Para descargar cambios nuevos desde GitHub:
-
-```powershell
-git pull origin main
-```
+- `npm install`: instala Electron.
+- `npm start`: abre la aplicación.
+- `contextIsolation: true`.
+- `nodeIntegration: false`.
+- `sandbox: true`.
