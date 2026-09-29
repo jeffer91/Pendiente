@@ -51,9 +51,17 @@ const STATUS_META = {
 };
 
 const PRIORITY_META = {
+  maxima: { label: 'Máxima', className: 'priority-max' },
   alta: { label: 'Alta', className: 'priority-high' },
   media: { label: 'Media', className: 'priority-medium' },
   baja: { label: 'Baja', className: 'priority-low' }
+};
+
+const PRIORITY_RANK = {
+  baja: 1,
+  media: 2,
+  alta: 3,
+  maxima: 4
 };
 
 function normalize(value = '') {
@@ -88,12 +96,54 @@ function setBusy(button, busy, busyText = 'Procesando…') {
   }
 }
 
-function isOverdue(task) {
-  if (!task.dueDate || task.status === 'completado') return false;
+function getDaysUntilDue(task) {
+  if (!task.dueDate) return null;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const due = new Date(`${task.dueDate}T00:00:00`);
-  return due < today;
+  if (Number.isNaN(due.getTime())) return null;
+
+  return Math.round((due.getTime() - today.getTime()) / 86400000);
+}
+
+function isOverdue(task) {
+  if (task.status === 'completado') return false;
+  const days = getDaysUntilDue(task);
+  return days !== null && days < 0;
+}
+
+function automaticPriority(task) {
+  if (task.status === 'completado') return 'baja';
+
+  const days = getDaysUntilDue(task);
+  if (days === null) return 'baja';
+  if (days <= 0) return 'maxima';
+  if (days <= 2) return 'alta';
+  if (days <= 7) return 'media';
+  return 'baja';
+}
+
+function effectivePriority(task) {
+  const manual = PRIORITY_RANK[task.priority] ? task.priority : 'media';
+  const automatic = automaticPriority(task);
+
+  return PRIORITY_RANK[automatic] > PRIORITY_RANK[manual]
+    ? automatic
+    : manual;
+}
+
+function dueLabel(task) {
+  if (task.status === 'completado') return 'Completado';
+
+  const days = getDaysUntilDue(task);
+  if (days === null) return 'Sin fecha';
+  if (days < -1) return `Vencido hace ${Math.abs(days)} días`;
+  if (days === -1) return 'Vencido ayer';
+  if (days === 0) return 'Sale hoy';
+  if (days === 1) return 'Sale mañana';
+  return `Faltan ${days} días`;
 }
 
 function formatDate(dateString) {
@@ -177,21 +227,41 @@ function filteredTasks() {
   const status = elements.statusFilter.value;
   const processCode = elements.processFilter.value;
 
-  return state.tasks.filter((task) => {
-    if (unit && task.unit !== unit) return false;
-    if (status && task.status !== status) return false;
-    if (processCode && task.processCode !== processCode) return false;
-    if (!search) return true;
+  return state.tasks
+    .filter((task) => {
+      if (unit && task.unit !== unit) return false;
+      if (status && task.status !== status) return false;
+      if (processCode && task.processCode !== processCode) return false;
+      if (!search) return true;
 
-    return normalize([
-      task.documentName,
-      task.documentCode,
-      task.processCode,
-      task.processName,
-      task.notes,
-      task.unit
-    ].join(' ')).includes(search);
-  });
+      return normalize([
+        task.documentName,
+        task.documentCode,
+        task.processCode,
+        task.processName,
+        task.notes,
+        task.unit
+      ].join(' ')).includes(search);
+    })
+    .sort((a, b) => {
+      const aCompleted = a.status === 'completado';
+      const bCompleted = b.status === 'completado';
+
+      if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
+
+      const priorityDiff =
+        PRIORITY_RANK[effectivePriority(b)] - PRIORITY_RANK[effectivePriority(a)];
+      if (priorityDiff !== 0) return priorityDiff;
+
+      const aDays = getDaysUntilDue(a);
+      const bDays = getDaysUntilDue(b);
+
+      if (aDays === null && bDays !== null) return 1;
+      if (aDays !== null && bDays === null) return -1;
+      if (aDays !== null && bDays !== null && aDays !== bDays) return aDays - bDays;
+
+      return String(a.documentName || '').localeCompare(String(b.documentName || ''), 'es');
+    });
 }
 
 function renderTable() {
@@ -201,11 +271,15 @@ function renderTable() {
 
   elements.taskTableBody.innerHTML = tasks.map((task) => {
     const status = STATUS_META[task.status] || STATUS_META.pendiente;
-    const priority = PRIORITY_META[task.priority] || PRIORITY_META.media;
+    const effective = effectivePriority(task);
+    const effectiveMeta = PRIORITY_META[effective] || PRIORITY_META.media;
+    const manual = PRIORITY_META[task.priority] || PRIORITY_META.media;
+    const autoRaised = PRIORITY_RANK[effective] > PRIORITY_RANK[task.priority || 'media'];
     const overdue = isOverdue(task);
+    const timeText = dueLabel(task);
 
     return `
-      <tr data-id="${escapeHtml(task.id)}">
+      <tr data-id="${escapeHtml(task.id)}" class="${overdue ? 'row-overdue' : ''}">
         <td>
           <div class="doc-title">${escapeHtml(task.documentName || 'Sin nombre')}</div>
           <div class="doc-code">${escapeHtml(task.documentCode || 'Sin código')}</div>
@@ -215,8 +289,23 @@ function renderTable() {
           <div class="process-name">${escapeHtml(task.processName || '')}</div>
         </td>
         <td><span class="badge ${status.className}">${status.label}</span></td>
-        <td><span class="badge ${priority.className}">${priority.label}</span></td>
-        <td class="${overdue ? 'overdue-date' : ''}">${escapeHtml(formatDate(task.dueDate))}${overdue ? ' · Vencido' : ''}</td>
+        <td>
+          <div class="priority-inline">
+            <select class="quick-priority" data-id="${escapeHtml(task.id)}" aria-label="Prioridad de ${escapeHtml(task.documentName || 'documento')}">
+              <option value="alta" ${task.priority === 'alta' ? 'selected' : ''}>Alta</option>
+              <option value="media" ${task.priority === 'media' ? 'selected' : ''}>Media</option>
+              <option value="baja" ${task.priority === 'baja' ? 'selected' : ''}>Baja</option>
+            </select>
+            <span class="badge ${effectiveMeta.className}" title="Prioridad efectiva">${effectiveMeta.label}</span>
+          </div>
+          ${autoRaised ? `<div class="auto-priority-note">Automática · manual: ${manual.label}</div>` : ''}
+        </td>
+        <td>
+          <div class="date-inline">
+            <input class="quick-date" data-id="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.dueDate || '')}" aria-label="Fecha de salida de ${escapeHtml(task.documentName || 'documento')}" />
+            <span class="due-note ${overdue ? 'overdue-date' : ''}">${escapeHtml(timeText)}</span>
+          </div>
+        </td>
         <td class="actions-cell">
           <div class="row-actions">
             <button class="mini-button edit-task" type="button" data-id="${escapeHtml(task.id)}">Editar</button>
@@ -324,6 +413,33 @@ async function saveTask(event) {
   }
 }
 
+async function quickUpdateTask(taskId, changes) {
+  const task = state.tasks.find((item) => String(item.id) === String(taskId));
+  if (!task) return;
+
+  const payload = {
+    unit: task.unit,
+    processCode: task.processCode,
+    processName: task.processName,
+    documentName: task.documentName,
+    documentCode: task.documentCode,
+    status: task.status,
+    priority: task.priority,
+    dueDate: task.dueDate,
+    notes: task.notes,
+    ...changes
+  };
+
+  try {
+    await window.pendingAPI.update(taskId, payload);
+    await reloadTasks();
+    showToast('Pendiente actualizado.');
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo actualizar el registro.');
+  }
+}
+
 async function removeTask(taskId) {
   const task = state.tasks.find((item) => String(item.id) === String(taskId));
   if (!task) return;
@@ -348,7 +464,7 @@ function exportCsv() {
     return;
   }
 
-  const headers = ['Unidad', 'Proceso', 'Nombre del proceso', 'Documento', 'Código', 'Estado', 'Prioridad', 'Fecha límite', 'Notas'];
+  const headers = ['Unidad', 'Proceso', 'Nombre del proceso', 'Documento', 'Código', 'Estado', 'Prioridad efectiva', 'Prioridad manual', 'Fecha de salida', 'Tiempo', 'Notas'];
   const rows = tasks.map((task) => [
     task.unit,
     task.processCode,
@@ -356,8 +472,10 @@ function exportCsv() {
     task.documentName,
     task.documentCode,
     STATUS_META[task.status]?.label || task.status,
+    PRIORITY_META[effectivePriority(task)]?.label || effectivePriority(task),
     PRIORITY_META[task.priority]?.label || task.priority,
     task.dueDate,
+    dueLabel(task),
     task.notes
   ]);
 
@@ -403,6 +521,19 @@ function setupEvents() {
 
     if (edit) openEditTask(edit.dataset.id);
     if (remove) removeTask(remove.dataset.id);
+  });
+
+  elements.taskTableBody.addEventListener('change', (event) => {
+    const prioritySelect = event.target.closest('.quick-priority');
+    const dateInput = event.target.closest('.quick-date');
+
+    if (prioritySelect) {
+      quickUpdateTask(prioritySelect.dataset.id, { priority: prioritySelect.value });
+    }
+
+    if (dateInput) {
+      quickUpdateTask(dateInput.dataset.id, { dueDate: dateInput.value });
+    }
   });
 }
 
