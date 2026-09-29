@@ -1,8 +1,0 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /pendientes/{pendingId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-  }
-}
