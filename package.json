@@ -1,8 +1,8 @@
 {
   "name": "pendiente",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Aplicación de escritorio para el control de pendientes documentales UGPA y UTET.",
+  "description": "Aplicación Electron con base SQLite local para control de pendientes UGPA y UTET.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
