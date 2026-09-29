@@ -1,31 +1,9 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import {
-  getAuth,
-  inMemoryPersistence,
-  setPersistence,
-  signInAnonymously
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  getFirestore,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  writeBatch
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-
-import { firebaseConfig, firebaseConfigured } from './firebase-config.js';
 import { PROCESS_CATALOG, flatCatalog } from './catalog.js';
 
 const $ = (selector) => document.querySelector(selector);
+
 const elements = {
-  setupBanner: $('#setupBanner'),
+  dbLocation: $('#dbLocation'),
   syncState: $('#syncState'),
   searchInput: $('#searchInput'),
   unitFilter: $('#unitFilter'),
@@ -40,7 +18,6 @@ const elements = {
   statDone: $('#statDone'),
   statOverdue: $('#statOverdue'),
   newTaskButton: $('#newTaskButton'),
-  loadCatalogButton: $('#loadCatalogButton'),
   exportButton: $('#exportButton'),
   taskDialog: $('#taskDialog'),
   taskForm: $('#taskForm'),
@@ -63,11 +40,7 @@ const elements = {
 };
 
 const state = {
-  tasks: [],
-  unsubscribe: null,
-  firebase: null,
-  cloudReady: false,
-  anonymousUid: null
+  tasks: []
 };
 
 const STATUS_META = {
@@ -100,7 +73,7 @@ function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.remove('hidden');
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => elements.toast.classList.add('hidden'), 3000);
+  showToast.timer = setTimeout(() => elements.toast.classList.add('hidden'), 2800);
 }
 
 function setBusy(button, busy, busyText = 'Procesando…') {
@@ -115,18 +88,6 @@ function setBusy(button, busy, busyText = 'Procesando…') {
   }
 }
 
-function setSyncState(text, mode = '') {
-  elements.syncState.textContent = text;
-  elements.syncState.classList.remove('online', 'error');
-  if (mode) elements.syncState.classList.add(mode);
-}
-
-function ensureCloudReady() {
-  if (state.cloudReady && state.firebase?.db) return true;
-  showToast('Falta conectar Firebase para guardar o modificar información.');
-  return false;
-}
-
 function isOverdue(task) {
   if (!task.dueDate || task.status === 'completado') return false;
   const today = new Date();
@@ -139,7 +100,11 @@ function formatDate(dateString) {
   if (!dateString) return '—';
   const date = new Date(`${dateString}T00:00:00`);
   if (Number.isNaN(date.getTime())) return dateString;
-  return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('es-EC', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
 }
 
 function uniqueProcesses(unit = '') {
@@ -150,34 +115,49 @@ function populateProcessFilter() {
   const current = elements.processFilter.value;
   const unit = elements.unitFilter.value;
   const processes = uniqueProcesses(unit);
-  elements.processFilter.innerHTML = '<option value="">Todos los procesos</option>' + processes.map((process) =>
-    `<option value="${escapeHtml(process.processCode)}">${escapeHtml(process.processCode)} · ${escapeHtml(process.processName)}</option>`
-  ).join('');
-  if (processes.some((process) => process.processCode === current)) elements.processFilter.value = current;
+
+  elements.processFilter.innerHTML =
+    '<option value="">Todos los procesos</option>' +
+    processes.map((process) =>
+      `<option value="${escapeHtml(process.processCode)}">${escapeHtml(process.processCode)} · ${escapeHtml(process.processName)}</option>`
+    ).join('');
+
+  if (processes.some((process) => process.processCode === current)) {
+    elements.processFilter.value = current;
+  }
 }
 
 function populateTaskProcesses() {
   const unit = elements.taskUnit.value;
   const current = elements.taskProcess.value;
   const processes = uniqueProcesses(unit);
+
   elements.taskProcess.innerHTML = processes.map((process) =>
     `<option value="${escapeHtml(process.processCode)}">${escapeHtml(process.processCode)} · ${escapeHtml(process.processName)}</option>`
   ).join('');
-  if (processes.some((process) => process.processCode === current)) elements.taskProcess.value = current;
+
+  if (processes.some((process) => process.processCode === current)) {
+    elements.taskProcess.value = current;
+  }
+
   populateTaskDocuments();
 }
 
 function populateTaskDocuments() {
   const process = PROCESS_CATALOG.find((item) => item.processCode === elements.taskProcess.value);
   const options = process?.documents || [];
-  elements.taskDocumentSelect.innerHTML = '<option value="">Personalizado / escribir manualmente</option>' + options.map(([name, code], index) =>
-    `<option value="${index}">${escapeHtml(name)}${code ? ` · ${escapeHtml(code)}` : ''}</option>`
-  ).join('');
+
+  elements.taskDocumentSelect.innerHTML =
+    '<option value="">Personalizado / escribir manualmente</option>' +
+    options.map(([name, code], index) =>
+      `<option value="${index}">${escapeHtml(name)}${code ? ` · ${escapeHtml(code)}` : ''}</option>`
+    ).join('');
 }
 
 function applyDocumentPreset() {
   const process = PROCESS_CATALOG.find((item) => item.processCode === elements.taskProcess.value);
   if (!process || elements.taskDocumentSelect.value === '') return;
+
   const [name, code] = process.documents[Number(elements.taskDocumentSelect.value)] || ['', ''];
   elements.taskDocumentName.value = name;
   elements.taskDocumentCode.value = code;
@@ -202,6 +182,7 @@ function filteredTasks() {
     if (status && task.status !== status) return false;
     if (processCode && task.processCode !== processCode) return false;
     if (!search) return true;
+
     return normalize([
       task.documentName,
       task.documentCode,
@@ -217,10 +198,12 @@ function renderTable() {
   const tasks = filteredTasks();
   elements.resultCount.textContent = `${tasks.length} ${tasks.length === 1 ? 'registro' : 'registros'}`;
   elements.emptyState.classList.toggle('hidden', tasks.length > 0);
+
   elements.taskTableBody.innerHTML = tasks.map((task) => {
     const status = STATUS_META[task.status] || STATUS_META.pendiente;
     const priority = PRIORITY_META[task.priority] || PRIORITY_META.media;
     const overdue = isOverdue(task);
+
     return `
       <tr data-id="${escapeHtml(task.id)}">
         <td>
@@ -249,6 +232,11 @@ function render() {
   renderTable();
 }
 
+async function reloadTasks() {
+  state.tasks = await window.pendingAPI.list();
+  render();
+}
+
 function resetTaskForm() {
   elements.taskForm.reset();
   elements.taskId.value = '';
@@ -261,15 +249,14 @@ function resetTaskForm() {
 }
 
 function openNewTask() {
-  if (!ensureCloudReady()) return;
   resetTaskForm();
   elements.taskDialog.showModal();
 }
 
 function openEditTask(taskId) {
-  if (!ensureCloudReady()) return;
-  const task = state.tasks.find((item) => item.id === taskId);
+  const task = state.tasks.find((item) => String(item.id) === String(taskId));
   if (!task) return;
+
   resetTaskForm();
   elements.dialogTitle.textContent = 'Editar pendiente';
   elements.taskId.value = task.id;
@@ -294,13 +281,8 @@ function getProcessMeta(processCode) {
   return PROCESS_CATALOG.find((item) => item.processCode === processCode);
 }
 
-function tasksCollection() {
-  return collection(state.firebase.db, 'pendientes');
-}
-
 async function saveTask(event) {
   event.preventDefault();
-  if (!ensureCloudReady()) return;
 
   const process = getProcessMeta(elements.taskProcess.value);
   const payload = {
@@ -312,9 +294,7 @@ async function saveTask(event) {
     status: elements.taskStatus.value,
     priority: elements.taskPriority.value,
     dueDate: elements.taskDueDate.value,
-    notes: elements.taskNotes.value.trim(),
-    updatedBy: state.anonymousUid || '',
-    updatedAt: serverTimestamp()
+    notes: elements.taskNotes.value.trim()
   };
 
   if (!payload.documentName) {
@@ -326,88 +306,43 @@ async function saveTask(event) {
   elements.taskMessage.textContent = '';
 
   try {
-    const taskCollection = tasksCollection();
     if (elements.taskId.value) {
-      await updateDoc(doc(taskCollection, elements.taskId.value), payload);
+      await window.pendingAPI.update(elements.taskId.value, payload);
       showToast('Pendiente actualizado.');
     } else {
-      await addDoc(taskCollection, {
-        ...payload,
-        createdBy: state.anonymousUid || '',
-        createdAt: serverTimestamp(),
-        source: 'manual'
-      });
+      await window.pendingAPI.create(payload);
       showToast('Pendiente creado.');
     }
+
+    await reloadTasks();
     closeTaskDialog();
   } catch (error) {
     console.error(error);
-    elements.taskMessage.textContent = friendlyFirebaseError(error);
+    elements.taskMessage.textContent = 'No se pudo guardar en la base local.';
   } finally {
     setBusy(elements.saveTaskButton, false);
   }
 }
 
 async function removeTask(taskId) {
-  if (!ensureCloudReady()) return;
-  const task = state.tasks.find((item) => item.id === taskId);
+  const task = state.tasks.find((item) => String(item.id) === String(taskId));
   if (!task) return;
-  const accepted = window.confirm(`¿Eliminar “${task.documentName}”?`);
-  if (!accepted) return;
+
+  if (!window.confirm(`¿Eliminar “${task.documentName}”?`)) return;
 
   try {
-    await deleteDoc(doc(tasksCollection(), taskId));
+    await window.pendingAPI.remove(taskId);
+    await reloadTasks();
     showToast('Pendiente eliminado.');
   } catch (error) {
     console.error(error);
-    showToast(friendlyFirebaseError(error));
-  }
-}
-
-async function loadCatalog() {
-  if (!ensureCloudReady()) return;
-  setBusy(elements.loadCatalogButton, true, 'Cargando…');
-
-  try {
-    const taskCollection = tasksCollection();
-    const snapshot = await getDocs(taskCollection);
-    const existingCatalogIds = new Set(snapshot.docs.map((item) => item.data().catalogId).filter(Boolean));
-    const missing = flatCatalog.filter((item) => !existingCatalogIds.has(item.catalogId));
-
-    if (!missing.length) {
-      showToast('El catálogo ya está cargado.');
-      return;
-    }
-
-    const batch = writeBatch(state.firebase.db);
-    missing.forEach((item) => {
-      const ref = doc(taskCollection, item.catalogId);
-      batch.set(ref, {
-        ...item,
-        status: 'pendiente',
-        priority: 'media',
-        dueDate: '',
-        notes: item.processNote || '',
-        createdBy: state.anonymousUid || '',
-        updatedBy: state.anonymousUid || '',
-        source: 'catalogo',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    });
-
-    await batch.commit();
-    showToast(`${missing.length} documentos del catálogo cargados.`);
-  } catch (error) {
-    console.error(error);
-    showToast(friendlyFirebaseError(error));
-  } finally {
-    setBusy(elements.loadCatalogButton, false);
+    showToast('No se pudo eliminar el registro.');
   }
 }
 
 function exportCsv() {
   const tasks = filteredTasks();
+
   if (!tasks.length) {
     showToast('No hay registros para exportar.');
     return;
@@ -427,7 +362,10 @@ function exportCsv() {
   ]);
 
   const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  const csv = '\ufeff' + [headers, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\n');
+  const csv = '\ufeff' + [headers, ...rows]
+    .map((row) => row.map(escapeCsv).join(';'))
+    .join('\n');
+
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -439,39 +377,8 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
-function friendlyFirebaseError(error) {
-  const code = error?.code || '';
-  const map = {
-    'auth/operation-not-allowed': 'Habilita el proveedor Anónimo en Firebase Authentication.',
-    'auth/admin-restricted-operation': 'El acceso anónimo está deshabilitado en Firebase Authentication.',
-    'permission-denied': 'Firestore rechazó la operación. Publica las reglas incluidas en firestore.rules.',
-    'failed-precondition': 'Firestore todavía no está habilitado o requiere configuración.',
-    'unavailable': 'No se pudo conectar con Firebase. Revisa la conexión a internet.'
-  };
-  return map[code] || error?.message || 'Ocurrió un error inesperado.';
-}
-
-function subscribeTasks() {
-  if (state.unsubscribe) state.unsubscribe();
-
-  const taskQuery = query(tasksCollection(), orderBy('updatedAt', 'desc'));
-  setSyncState('Sincronizando…');
-
-  state.unsubscribe = onSnapshot(taskQuery, (snapshot) => {
-    state.tasks = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-    setSyncState('En línea', 'online');
-    render();
-  }, (error) => {
-    console.error(error);
-    state.cloudReady = false;
-    setSyncState('Error de sincronización', 'error');
-    showToast(friendlyFirebaseError(error));
-  });
-}
-
 function setupEvents() {
   elements.newTaskButton.addEventListener('click', openNewTask);
-  elements.loadCatalogButton.addEventListener('click', loadCatalog);
   elements.exportButton.addEventListener('click', exportCsv);
   elements.closeDialogButton.addEventListener('click', closeTaskDialog);
   elements.cancelTaskButton.addEventListener('click', closeTaskDialog);
@@ -480,6 +387,7 @@ function setupEvents() {
   elements.searchInput.addEventListener('input', renderTable);
   elements.statusFilter.addEventListener('change', renderTable);
   elements.processFilter.addEventListener('change', renderTable);
+
   elements.unitFilter.addEventListener('change', () => {
     populateProcessFilter();
     renderTable();
@@ -492,46 +400,42 @@ function setupEvents() {
   elements.taskTableBody.addEventListener('click', (event) => {
     const edit = event.target.closest('.edit-task');
     const remove = event.target.closest('.delete-task');
+
     if (edit) openEditTask(edit.dataset.id);
     if (remove) removeTask(remove.dataset.id);
   });
 }
 
-async function connectFirebase() {
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  await setPersistence(auth, inMemoryPersistence);
-  const credential = await signInAnonymously(auth);
-
-  state.firebase = { app, auth, db };
-  state.anonymousUid = credential.user.uid;
-  state.cloudReady = true;
-  elements.setupBanner.classList.add('hidden');
-  subscribeTasks();
-}
-
 async function init() {
-  populateProcessFilter();
-  populateTaskProcesses();
-  setupEvents();
-  render();
-
-  if (!firebaseConfigured) {
-    elements.setupBanner.classList.remove('hidden');
-    setSyncState('Firebase pendiente', 'error');
+  if (!window.pendingAPI) {
+    elements.syncState.textContent = 'Error de base local';
+    elements.syncState.classList.add('error');
     return;
   }
 
+  populateProcessFilter();
+  populateTaskProcesses();
+  setupEvents();
+
   try {
-    await connectFirebase();
+    const info = await window.pendingAPI.getInfo();
+    elements.dbLocation.title = info.path;
+    elements.dbLocation.textContent = 'SQLite local';
+
+    const seedResult = await window.pendingAPI.seed(flatCatalog);
+    await reloadTasks();
+
+    elements.syncState.textContent = 'Base local';
+    elements.syncState.classList.add('online');
+
+    if (seedResult.inserted > 0) {
+      showToast(`${seedResult.inserted} pendientes iniciales cargados.`);
+    }
   } catch (error) {
     console.error(error);
-    state.cloudReady = false;
-    elements.setupBanner.classList.remove('hidden');
-    setSyncState('Sin conexión', 'error');
-    showToast(friendlyFirebaseError(error));
+    elements.syncState.textContent = 'Error de base local';
+    elements.syncState.classList.add('error');
+    showToast('No se pudo abrir la base de datos local.');
   }
 }
 
