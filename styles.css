@@ -57,7 +57,7 @@ button { cursor: pointer; }
 
 .setup-banner code { background: rgba(255,255,255,.7); padding: 2px 5px; border-radius: 5px; }
 
-.page-shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 48px; }
+.page-shell { width: min(1220px, calc(100% - 28px)); margin: 0 auto; padding: 16px 0 32px; }
 
 .auth-layout {
   min-height: calc(100vh - 56px);
@@ -82,7 +82,7 @@ button { cursor: pointer; }
 }
 
 .eyebrow {
-  margin: 0 0 7px;
+  margin: 0 0 4px;
   font-size: 11px;
   letter-spacing: .14em;
   color: var(--primary);
@@ -95,7 +95,7 @@ h2 { margin-bottom: 7px; font-size: 21px; letter-spacing: -.02em; }
 h3 { margin-bottom: 5px; }
 .brand-copy { max-width: 560px; font-size: 17px; line-height: 1.65; color: var(--muted); }
 .muted { color: var(--muted); }
-.compact { margin-bottom: 0; font-size: 13px; }
+.compact { margin-bottom: 0; font-size: 12px; line-height: 1.3; }
 
 .cloud-note {
   margin-top: 28px;
@@ -132,13 +132,13 @@ input, select, textarea {
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-input, select { min-height: 39px; padding: 8px 10px; }
+input, select { min-height: 34px; padding: 6px 9px; }
 textarea { padding: 10px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,107,115,.10); }
 
 .button {
-  min-height: 38px;
-  padding: 8px 13px;
+  min-height: 34px;
+  padding: 6px 12px;
   border-radius: 9px;
   border: 1px solid transparent;
   font-size: 12px;
@@ -155,16 +155,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
 
 .form-message { min-height: 17px; margin: 0; font-size: 12px; color: var(--danger); }
 
-.app-view { display: grid; gap: 18px; }
-.topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
-.title-row { display: flex; gap: 12px; align-items: center; }
-.title-row h1 { font-size: 34px; margin: 0; }
+.app-view { display: grid; gap: 10px; }
+.topbar { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.title-row { display: flex; gap: 8px; align-items: center; }
+.title-row h1 { font-size: 30px; line-height: 1.05; margin: 0; }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .user-chip, .sync-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 31px;
-  padding: 6px 9px;
+  min-height: 26px;
+  padding: 4px 8px;
   border-radius: 999px;
   background: #fff;
   border: 1px solid var(--line);
@@ -175,17 +175,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
 .sync-pill.online { background: var(--success-soft); color: var(--success); border-color: #cce8d7; }
 .sync-pill.error { background: var(--danger-soft); color: var(--danger); border-color: #f2cece; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.stat-card { border-radius: 12px; padding: 13px 15px; box-shadow: none; }
-.stat-card span { display: block; font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
-.stat-card strong { font-size: 24px; letter-spacing: -.04em; }
+.stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.stat-card { border-radius: 10px; padding: 9px 13px; min-height: 58px; box-shadow: none; }
+.stat-card span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+.stat-card strong { font-size: 22px; line-height: 1; letter-spacing: -.04em; }
 .stat-card.danger strong { color: var(--danger); }
 
-.toolbar-card { border-radius: var(--radius); padding: 15px; box-shadow: none; }
-.toolbar-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 13px; }
-.toolbar-head h2 { font-size: 17px; margin-bottom: 2px; }
-.action-row { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
-.filters-grid { display: grid; grid-template-columns: 1.8fr .7fr .85fr 1.35fr; gap: 9px; }
+.toolbar-card { border-radius: 12px; padding: 11px 13px; box-shadow: none; }
+.toolbar-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 8px; }
+.toolbar-head h2 { font-size: 16px; margin-bottom: 0; }
+.action-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.filters-grid { display: grid; grid-template-columns: 1.8fr .7fr .85fr 1.35fr; gap: 7px; }
 
 .table-card { border-radius: var(--radius); overflow: hidden; box-shadow: none; }
 .table-wrap { overflow-x: auto; }
