@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Control de pendientes documentales de UGPA y UTET" />
+  <meta name="description" content="Control local de pendientes documentales de UGPA y UTET" />
   <title>Pendientes | UGPA · UTET</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,26 +11,19 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div id="setupBanner" class="setup-banner hidden" role="alert">
-    <div>
-      <strong>Falta conectar Firebase.</strong>
-      <span>Completa <code>firebase-config.js</code>, habilita acceso anónimo y crea Cloud Firestore.</span>
-    </div>
-  </div>
-
   <main class="page-shell">
-    <section id="appView" class="app-view">
+    <section class="app-view">
       <header class="topbar">
         <div>
           <p class="eyebrow">UGPA · UTET</p>
           <div class="title-row">
             <h1>Pendientes</h1>
-            <span id="syncState" class="sync-pill">Conectando…</span>
+            <span id="syncState" class="sync-pill online">Base local</span>
           </div>
           <p class="muted compact">Control de documentos por proceso, estado, prioridad y fecha.</p>
         </div>
         <div class="topbar-actions">
-          <span class="user-chip">Guardado en línea</span>
+          <span id="dbLocation" class="user-chip">SQLite local</span>
         </div>
       </header>
 
@@ -49,7 +42,6 @@
             <p id="resultCount" class="muted compact">0 registros</p>
           </div>
           <div class="action-row">
-            <button id="loadCatalogButton" class="button secondary" type="button">Cargar catálogo</button>
             <button id="exportButton" class="button secondary" type="button">Exportar CSV</button>
             <button id="newTaskButton" class="button primary" type="button">+ Nuevo pendiente</button>
           </div>
@@ -106,7 +98,7 @@
         <div id="emptyState" class="empty-state hidden">
           <div class="empty-icon">✓</div>
           <h3>No hay registros con estos filtros</h3>
-          <p>Puedes crear un pendiente nuevo o cargar los documentos base de los manuales.</p>
+          <p>Prueba cambiando los filtros o crea un nuevo pendiente.</p>
         </div>
       </section>
     </section>
