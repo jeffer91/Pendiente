@@ -1,8 +1,10 @@
 # Pendientes
 
-Aplicación de escritorio en **Electron** para controlar documentos y pendientes de los procesos **UGPA** y **UTET**.
+Aplicación de escritorio en **Electron** para controlar los documentos y pendientes de los procesos **UGPA** y **UTET**.
 
-## Ejecutar en Windows
+## Ejecutar
+
+En Windows:
 
 ```powershell
 cd C:\Users\ITSQMET\Desktop\Pendiente
@@ -11,55 +13,61 @@ npm install
 npm start
 ```
 
-La aplicación abre directamente: **no tiene pantalla de login**.
+## Base de datos local
 
-## Guardado
+La aplicación ya no usa Firebase ni almacenamiento en línea.
 
-- Los pendientes no se guardan en `localStorage`.
-- Los datos se almacenan en **Cloud Firestore**.
-- La aplicación inicia una sesión anónima de Firebase automáticamente en segundo plano.
-- Todos los equipos conectados al mismo proyecto Firebase consultan la misma colección `pendientes`.
+Los datos se guardan en una base **SQLite local** llamada:
 
-## Configurar Firebase
+`pendientes.sqlite`
 
-Completa `firebase-config.js` con la configuración Web de tu proyecto Firebase:
+Electron la crea automáticamente dentro de la carpeta de datos de la aplicación del usuario. No se utiliza `localStorage`.
 
-```js
-export const firebaseConfig = {
-  apiKey: "...",
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
-```
+## Pendientes iniciales
 
-Después, en Firebase Console:
+En el primer inicio, la base se llena automáticamente con el catálogo que tenemos de los manuales UGPA y UTET:
 
-1. Ve a **Authentication > Sign-in method**.
-2. Habilita **Anonymous / Anónimo**. No hace falta Email/Password.
-3. Crea **Cloud Firestore**.
-4. Publica las reglas incluidas en `firestore.rules`.
+- **19 procesos**
+- **59 documentos**
+- Estado inicial: **Pendiente**
+- Prioridad inicial: **Media**
+
+La carga usa `catalogId` único, por lo que al volver a abrir la aplicación no duplica los registros.
 
 ## Funciones
 
-- Catálogo de procesos y documentos UGPA/UTET.
+- Base SQLite local.
+- Catálogo precargado.
 - Nuevo pendiente.
 - Edición y eliminación.
-- Estados y prioridades.
-- Fechas límite y vencidos.
+- Estados: Pendiente, En proceso, Bloqueado y Completado.
+- Prioridades: Alta, Media y Baja.
+- Fecha límite y control de vencidos.
 - Notas.
-- Búsqueda y filtros.
+- Búsqueda.
+- Filtros por unidad, proceso y estado.
 - Indicadores.
-- Carga del catálogo sin duplicados.
 - Exportación CSV.
-- Sincronización en tiempo real.
 
-## Electron
+## Arquitectura
 
-- `npm install`: instala Electron.
-- `npm start`: abre la aplicación.
-- `contextIsolation: true`.
-- `nodeIntegration: false`.
-- `sandbox: true`.
+- `main.js`: ventana Electron, SQLite e IPC.
+- `preload.js`: API segura entre la interfaz y la base.
+- `index.html`: interfaz.
+- `app.js`: lógica del panel y CRUD.
+- `catalog.js`: catálogo UGPA/UTET y carga inicial.
+- `styles.css`: estilos.
+- `package.json`: ejecución con Electron.
+
+## Comandos
+
+```powershell
+npm install
+npm start
+```
+
+Para traer cambios futuros:
+
+```powershell
+git pull origin main
+```
