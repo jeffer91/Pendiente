@@ -5,6 +5,10 @@ const $ = (selector) => document.querySelector(selector);
 const elements = {
   dbLocation: $('#dbLocation'),
   syncState: $('#syncState'),
+  pendingViewButton: $('#pendingViewButton'),
+  priorityViewButton: $('#priorityViewButton'),
+  pendingView: $('#pendingView'),
+  priorityView: $('#priorityView'),
   searchInput: $('#searchInput'),
   unitFilter: $('#unitFilter'),
   statusFilter: $('#statusFilter'),
@@ -14,9 +18,15 @@ const elements = {
   resultCount: $('#resultCount'),
   statTotal: $('#statTotal'),
   statPending: $('#statPending'),
-  statProgress: $('#statProgress'),
-  statDone: $('#statDone'),
+  statRealized: $('#statRealized'),
+  statSent: $('#statSent'),
+  statUploaded: $('#statUploaded'),
   statOverdue: $('#statOverdue'),
+  priorityMaxCount: $('#priorityMaxCount'),
+  priorityHighCount: $('#priorityHighCount'),
+  priorityMediumCount: $('#priorityMediumCount'),
+  priorityLowCount: $('#priorityLowCount'),
+  priorityBoard: $('#priorityBoard'),
   newTaskButton: $('#newTaskButton'),
   exportButton: $('#exportButton'),
   taskDialog: $('#taskDialog'),
@@ -40,14 +50,15 @@ const elements = {
 };
 
 const state = {
-  tasks: []
+  tasks: [],
+  view: 'pendientes'
 };
 
 const STATUS_META = {
-  pendiente: { label: 'Pendiente', className: 'pending' },
-  en_proceso: { label: 'En proceso', className: 'progress' },
-  bloqueado: { label: 'Bloqueado', className: 'blocked' },
-  completado: { label: 'Completado', className: 'done' }
+  pendiente: { label: 'Pendiente', className: 'status-pending' },
+  realizado: { label: 'Realizado', className: 'status-realized' },
+  enviado_firmar: { label: 'Enviado a firmar', className: 'status-sent' },
+  subido: { label: 'Subido', className: 'status-uploaded' }
 };
 
 const PRIORITY_META = {
@@ -63,6 +74,8 @@ const PRIORITY_RANK = {
   alta: 3,
   maxima: 4
 };
+
+const PRIORITY_ORDER = ['maxima', 'alta', 'media', 'baja'];
 
 function normalize(value = '') {
   return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -109,13 +122,13 @@ function getDaysUntilDue(task) {
 }
 
 function isOverdue(task) {
-  if (task.status === 'completado') return false;
+  if (task.status === 'subido') return false;
   const days = getDaysUntilDue(task);
   return days !== null && days < 0;
 }
 
 function automaticPriority(task) {
-  if (task.status === 'completado') return 'baja';
+  if (task.status === 'subido') return 'baja';
 
   const days = getDaysUntilDue(task);
   if (days === null) return 'baja';
@@ -135,14 +148,14 @@ function effectivePriority(task) {
 }
 
 function dueLabel(task) {
-  if (task.status === 'completado') return 'Completado';
+  if (task.status === 'subido') return 'Subido';
 
   const days = getDaysUntilDue(task);
   if (days === null) return 'Sin fecha';
   if (days < -1) return `Vencido hace ${Math.abs(days)} días`;
   if (days === -1) return 'Vencido ayer';
-  if (days === 0) return 'Sale hoy';
-  if (days === 1) return 'Sale mañana';
+  if (days === 0) return 'Entrega hoy';
+  if (days === 1) return 'Entrega mañana';
   return `Faltan ${days} días`;
 }
 
@@ -216,8 +229,9 @@ function applyDocumentPreset() {
 function renderStats() {
   elements.statTotal.textContent = state.tasks.length;
   elements.statPending.textContent = state.tasks.filter((task) => task.status === 'pendiente').length;
-  elements.statProgress.textContent = state.tasks.filter((task) => task.status === 'en_proceso').length;
-  elements.statDone.textContent = state.tasks.filter((task) => task.status === 'completado').length;
+  elements.statRealized.textContent = state.tasks.filter((task) => task.status === 'realizado').length;
+  elements.statSent.textContent = state.tasks.filter((task) => task.status === 'enviado_firmar').length;
+  elements.statUploaded.textContent = state.tasks.filter((task) => task.status === 'subido').length;
   elements.statOverdue.textContent = state.tasks.filter(isOverdue).length;
 }
 
@@ -244,8 +258,8 @@ function filteredTasks() {
       ].join(' ')).includes(search);
     })
     .sort((a, b) => {
-      const aCompleted = a.status === 'completado';
-      const bCompleted = b.status === 'completado';
+      const aCompleted = a.status === 'subido';
+      const bCompleted = b.status === 'subido';
 
       if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
 
@@ -288,10 +302,18 @@ function renderTable() {
           <div class="process-code">${escapeHtml(task.unit || '')} · ${escapeHtml(task.processCode || '')}</div>
           <div class="process-name">${escapeHtml(task.processName || '')}</div>
         </td>
-        <td><span class="badge ${status.className}">${status.label}</span></td>
+        <td>
+          <select class="quick-status ${status.className}" data-id="${escapeHtml(task.id)}" aria-label="Estado de ${escapeHtml(task.documentName || 'documento')}">
+            <option value="pendiente" ${task.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="realizado" ${task.status === 'realizado' ? 'selected' : ''}>Realizado</option>
+            <option value="enviado_firmar" ${task.status === 'enviado_firmar' ? 'selected' : ''}>Enviado a firmar</option>
+            <option value="subido" ${task.status === 'subido' ? 'selected' : ''}>Subido</option>
+          </select>
+        </td>
         <td>
           <div class="priority-inline">
             <select class="quick-priority" data-id="${escapeHtml(task.id)}" aria-label="Prioridad de ${escapeHtml(task.documentName || 'documento')}">
+              <option value="maxima" ${task.priority === 'maxima' ? 'selected' : ''}>Máxima</option>
               <option value="alta" ${task.priority === 'alta' ? 'selected' : ''}>Alta</option>
               <option value="media" ${task.priority === 'media' ? 'selected' : ''}>Media</option>
               <option value="baja" ${task.priority === 'baja' ? 'selected' : ''}>Baja</option>
@@ -302,7 +324,7 @@ function renderTable() {
         </td>
         <td>
           <div class="date-inline">
-            <input class="quick-date" data-id="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.dueDate || '')}" aria-label="Fecha de salida de ${escapeHtml(task.documentName || 'documento')}" />
+            <input class="quick-date" data-id="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.dueDate || '')}" aria-label="Fecha de entrega de ${escapeHtml(task.documentName || 'documento')}" />
             <span class="due-note ${overdue ? 'overdue-date' : ''}">${escapeHtml(timeText)}</span>
           </div>
         </td>
@@ -316,9 +338,80 @@ function renderTable() {
   }).join('');
 }
 
+function renderPriorityView() {
+  const active = state.tasks.filter((task) => task.status !== 'subido').sort((a, b) => {
+    const priorityDiff = PRIORITY_RANK[effectivePriority(b)] - PRIORITY_RANK[effectivePriority(a)];
+    if (priorityDiff !== 0) return priorityDiff;
+    const aDays = getDaysUntilDue(a);
+    const bDays = getDaysUntilDue(b);
+    if (aDays === null && bDays !== null) return 1;
+    if (aDays !== null && bDays === null) return -1;
+    if (aDays !== null && bDays !== null && aDays !== bDays) return aDays - bDays;
+    return String(a.documentName || '').localeCompare(String(b.documentName || ''), 'es');
+  });
+
+  const counts = { maxima: 0, alta: 0, media: 0, baja: 0 };
+  active.forEach((task) => { counts[effectivePriority(task)] += 1; });
+  elements.priorityMaxCount.textContent = counts.maxima;
+  elements.priorityHighCount.textContent = counts.alta;
+  elements.priorityMediumCount.textContent = counts.media;
+  elements.priorityLowCount.textContent = counts.baja;
+
+  if (!active.length) {
+    elements.priorityBoard.innerHTML = '<div class="empty-state"><div class="empty-icon">✓</div><h3>No hay pendientes activos</h3><p>Todos los documentos están subidos.</p></div>';
+    return;
+  }
+
+  elements.priorityBoard.innerHTML = PRIORITY_ORDER.map((priority) => {
+    const tasks = active.filter((task) => effectivePriority(task) === priority);
+    if (!tasks.length) return '';
+    const meta = PRIORITY_META[priority];
+
+    return `
+      <section class="priority-group">
+        <div class="priority-group-head">
+          <span class="badge ${meta.className}">${meta.label}</span>
+          <span>${tasks.length} ${tasks.length === 1 ? 'pendiente' : 'pendientes'}</span>
+        </div>
+        <div class="priority-list">
+          ${tasks.map((task) => {
+            const statusMeta = STATUS_META[task.status] || STATUS_META.pendiente;
+            const overdue = isOverdue(task);
+            return `
+              <article class="priority-item ${overdue ? 'priority-item-overdue' : ''}">
+                <div class="priority-item-main">
+                  <div class="doc-title">${escapeHtml(task.documentName || 'Sin nombre')}</div>
+                  <div class="priority-meta-line">
+                    <span>${escapeHtml(task.unit || '')} · ${escapeHtml(task.processCode || '')}</span>
+                    <span class="status-chip ${statusMeta.className}">${statusMeta.label}</span>
+                  </div>
+                </div>
+                <div class="priority-date-block">
+                  <strong class="${overdue ? 'overdue-date' : ''}">${escapeHtml(dueLabel(task))}</strong>
+                  <span>${escapeHtml(formatDate(task.dueDate))}</span>
+                </div>
+                <button class="mini-button edit-priority-task" type="button" data-id="${escapeHtml(task.id)}">Editar</button>
+              </article>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }).join('');
+}
+
+function setView(view) {
+  state.view = view;
+  const priorities = view === 'prioridades';
+  elements.pendingView.classList.toggle('hidden', priorities);
+  elements.priorityView.classList.toggle('hidden', !priorities);
+  elements.pendingViewButton.classList.toggle('active', !priorities);
+  elements.priorityViewButton.classList.toggle('active', priorities);
+  if (priorities) renderPriorityView();
+}
+
 function render() {
   renderStats();
   renderTable();
+  renderPriorityView();
 }
 
 async function reloadTasks() {
@@ -464,7 +557,7 @@ function exportCsv() {
     return;
   }
 
-  const headers = ['Unidad', 'Proceso', 'Nombre del proceso', 'Documento', 'Código', 'Estado', 'Prioridad efectiva', 'Prioridad manual', 'Fecha de salida', 'Tiempo', 'Notas'];
+  const headers = ['Unidad', 'Proceso', 'Nombre del proceso', 'Documento', 'Código', 'Estado', 'Prioridad efectiva', 'Prioridad manual', 'Fecha de entrega', 'Tiempo', 'Notas'];
   const rows = tasks.map((task) => [
     task.unit,
     task.processCode,
@@ -496,6 +589,8 @@ function exportCsv() {
 }
 
 function setupEvents() {
+  elements.pendingViewButton.addEventListener('click', () => setView('pendientes'));
+  elements.priorityViewButton.addEventListener('click', () => setView('prioridades'));
   elements.newTaskButton.addEventListener('click', openNewTask);
   elements.exportButton.addEventListener('click', exportCsv);
   elements.closeDialogButton.addEventListener('click', closeTaskDialog);
@@ -524,8 +619,13 @@ function setupEvents() {
   });
 
   elements.taskTableBody.addEventListener('change', (event) => {
+    const statusSelect = event.target.closest('.quick-status');
     const prioritySelect = event.target.closest('.quick-priority');
     const dateInput = event.target.closest('.quick-date');
+
+    if (statusSelect) {
+      quickUpdateTask(statusSelect.dataset.id, { status: statusSelect.value });
+    }
 
     if (prioritySelect) {
       quickUpdateTask(prioritySelect.dataset.id, { priority: prioritySelect.value });
@@ -534,6 +634,11 @@ function setupEvents() {
     if (dateInput) {
       quickUpdateTask(dateInput.dataset.id, { dueDate: dateInput.value });
     }
+  });
+
+  elements.priorityBoard.addEventListener('click', (event) => {
+    const edit = event.target.closest('.edit-priority-task');
+    if (edit) openEditTask(edit.dataset.id);
   });
 }
 
@@ -547,6 +652,7 @@ async function init() {
   populateProcessFilter();
   populateTaskProcesses();
   setupEvents();
+  setView('pendientes');
 
   try {
     const info = await window.pendingAPI.getInfo();
