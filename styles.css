@@ -329,3 +329,66 @@ tbody tr:last-child td { border-bottom: 0; }
   .auth-card { padding: 20px; }
   .title-row h1 { font-size: 29px; }
 }
+
+
+/* v1.2 · flujo de estados, logo y pantalla de prioridades */
+.brand-row { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.app-logo { width: 46px; height: 46px; border-radius: 11px; flex: 0 0 auto; }
+.view-switcher { display: inline-flex; width: max-content; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: #eef2f3; }
+.view-button { min-height: 30px; padding: 5px 13px; border: 0; border-radius: 7px; background: transparent; color: #61707a; font-size: 11px; font-weight: 800; }
+.view-button.active { background: #fff; color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.view-panel { display: grid; gap: 10px; }
+.stats-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.stat-card.success strong { color: var(--success); }
+
+.quick-status { min-width: 128px; min-height: 30px; padding: 4px 7px; font-size: 10.5px; font-weight: 800; }
+.quick-status.status-pending, .status-chip.status-pending { color: #6f5618; background: var(--warning-soft); border-color: #eadfbf; }
+.quick-status.status-realized, .status-chip.status-realized { color: var(--info); background: var(--info-soft); border-color: #d4e0f2; }
+.quick-status.status-sent, .status-chip.status-sent { color: #6d4ca5; background: #f2edfb; border-color: #ddd1f0; }
+.quick-status.status-uploaded, .status-chip.status-uploaded { color: var(--success); background: var(--success-soft); border-color: #cce8d7; }
+.status-chip { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid transparent; border-radius: 999px; font-size: 9.5px; font-weight: 800; white-space: nowrap; }
+
+.priority-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.priority-summary, .priority-card-shell { background: var(--panel); border: 1px solid var(--line); }
+.priority-summary { min-height: 64px; padding: 10px 13px; border-radius: 11px; }
+.priority-summary span { display: block; font-size: 10px; font-weight: 800; margin-bottom: 3px; }
+.priority-summary strong { font-size: 24px; line-height: 1; }
+.priority-summary.priority-max { background: #fff7f7; }
+.priority-summary.priority-max span, .priority-summary.priority-max strong { color: #8f1d1d; }
+.priority-summary.priority-high { background: #fffafa; }
+.priority-summary.priority-high span, .priority-summary.priority-high strong { color: var(--danger); }
+.priority-summary.priority-medium { background: #fffcf5; }
+.priority-summary.priority-medium span, .priority-summary.priority-medium strong { color: #805e13; }
+.priority-summary.priority-low { background: #f8fafb; }
+.priority-summary.priority-low span, .priority-summary.priority-low strong { color: #56707c; }
+
+.priority-card-shell { border-radius: 12px; overflow: hidden; }
+.priority-head { padding: 12px 14px 9px; border-bottom: 1px solid var(--line); background: #fff; }
+.priority-head h2 { margin-bottom: 3px; font-size: 15px; }
+.priority-board { display: grid; gap: 0; }
+.priority-group { border-bottom: 1px solid var(--line); }
+.priority-group:last-child { border-bottom: 0; }
+.priority-group-head { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: #f8fafb; color: var(--muted); font-size: 10px; font-weight: 700; }
+.priority-list { display: grid; }
+.priority-item { display: grid; grid-template-columns: minmax(0, 1fr) 145px auto; gap: 12px; align-items: center; padding: 9px 12px; border-top: 1px solid #eef1f2; background: #fff; }
+.priority-item:first-child { border-top: 0; }
+.priority-item:hover { background: #fbfcfc; }
+.priority-item-overdue { background: #fffafa; }
+.priority-item-main { min-width: 0; }
+.priority-meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; color: var(--muted); font-size: 9.5px; }
+.priority-date-block { display: grid; gap: 2px; justify-items: start; font-size: 10px; color: var(--muted); }
+.priority-date-block strong { color: #374650; font-size: 10.5px; }
+
+@media (max-width: 1050px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 800px) {
+  .priority-summary-grid { grid-template-columns: 1fr 1fr; }
+  .priority-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .priority-date-block { grid-column: 1; }
+}
+@media (max-width: 640px) {
+  .app-logo { width: 42px; height: 42px; }
+  .priority-item { grid-template-columns: 1fr; }
+  .priority-date-block { grid-column: auto; }
+}
