@@ -139,6 +139,8 @@ function automaticPriority(task) {
 }
 
 function effectivePriority(task) {
+  if (task.status === 'subido') return 'baja';
+
   const manual = PRIORITY_RANK[task.priority] ? task.priority : 'media';
   const automatic = automaticPriority(task);
 
