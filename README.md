@@ -1,10 +1,26 @@
 # Pendientes
 
-Aplicación de escritorio en **Electron** para controlar los documentos y pendientes de los procesos **UGPA** y **UTET**.
+Aplicación de escritorio en **Electron** para controlar documentos y pendientes de los procesos **UGPA** y **UTET**.
+
+## Funciones
+
+- Base SQLite local.
+- Catálogo precargado.
+- Estados: **Pendiente → Realizado → Enviado a firmar → Subido**.
+- **Subido** representa el proceso terminado.
+- Prioridades: Máxima, Alta, Media y Baja.
+- Prioridad automática según la fecha de entrega.
+- Pantalla independiente de **Prioridades**.
+- Fecha de entrega editable directamente desde la tabla.
+- Búsqueda y filtros.
+- Indicadores y vencidos.
+- Exportación CSV.
+
+## Base de datos local
+
+Los datos se guardan en `pendientes.sqlite` dentro de la carpeta de datos de la aplicación del usuario. La base queda fuera de la carpeta de instalación, por lo que una actualización del programa no debe borrar los pendientes.
 
 ## Ejecutar
-
-En Windows:
 
 ```powershell
 cd C:\Users\ITSQMET\Desktop\Pendiente
@@ -13,61 +29,32 @@ npm install
 npm start
 ```
 
-## Base de datos local
-
-La aplicación ya no usa Firebase ni almacenamiento en línea.
-
-Los datos se guardan en una base **SQLite local** llamada:
-
-`pendientes.sqlite`
-
-Electron la crea automáticamente dentro de la carpeta de datos de la aplicación del usuario. No se utiliza `localStorage`.
-
-## Pendientes iniciales
-
-En el primer inicio, la base se llena automáticamente con el catálogo que tenemos de los manuales UGPA y UTET:
-
-- **19 procesos**
-- **59 documentos**
-- Estado inicial: **Pendiente**
-- Prioridad inicial: **Media**
-
-La carga usa `catalogId` único, por lo que al volver a abrir la aplicación no duplica los registros.
-
-## Funciones
-
-- Base SQLite local.
-- Catálogo precargado.
-- Nuevo pendiente.
-- Edición y eliminación.
-- Estados: Pendiente, En proceso, Bloqueado y Completado.
-- Prioridades: Alta, Media y Baja.
-- Fecha límite y control de vencidos.
-- Notas.
-- Búsqueda.
-- Filtros por unidad, proceso y estado.
-- Indicadores.
-- Exportación CSV.
-
-## Arquitectura
-
-- `main.js`: ventana Electron, SQLite e IPC.
-- `preload.js`: API segura entre la interfaz y la base.
-- `index.html`: interfaz.
-- `app.js`: lógica del panel y CRUD.
-- `catalog.js`: catálogo UGPA/UTET y carga inicial.
-- `styles.css`: estilos.
-- `package.json`: ejecución con Electron.
-
-## Comandos
+## Crear el instalador de Windows
 
 ```powershell
 npm install
-npm start
+npm run dist
 ```
 
-Para traer cambios futuros:
+El instalador se genera en:
+
+```text
+dist\Pendientes-Setup-1.2.0.exe
+```
+
+También se puede empaquetar sin instalador con:
 
 ```powershell
-git pull origin main
+npm run pack
 ```
+
+## Arquitectura
+
+- `main.js`: Electron, SQLite, migración de estados e IPC.
+- `preload.js`: API segura entre interfaz y base.
+- `index.html`: interfaz.
+- `app.js`: CRUD, estados, fechas y prioridades.
+- `catalog.js`: catálogo UGPA/UTET.
+- `styles.css`: diseño.
+- `assets/icon.png`: icono de la aplicación y del instalador.
+- `package.json`: ejecución y empaquetado.
