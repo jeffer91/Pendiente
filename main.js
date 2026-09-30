@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
 let mainWindow = null;
@@ -225,7 +226,9 @@ function createWindow() {
 app.whenReady().then(() => {
   // Mantener la misma carpeta de datos usada por las versiones anteriores.
   // Así una actualización no crea una base nueva ni hace parecer que se perdieron los pendientes.
-  app.setPath('userData', path.join(app.getPath('appData'), 'pendiente'));
+  const stableUserData = path.join(app.getPath('appData'), 'pendiente');
+  fs.mkdirSync(stableUserData, { recursive: true });
+  app.setPath('userData', stableUserData);
 
   openDatabase();
   registerDatabaseHandlers();
