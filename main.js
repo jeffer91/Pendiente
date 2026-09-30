@@ -226,8 +226,18 @@ function createWindow() {
 app.whenReady().then(() => {
   // Mantener la misma carpeta de datos usada por las versiones anteriores.
   // Así una actualización no crea una base nueva ni hace parecer que se perdieron los pendientes.
-  const stableUserData = path.join(app.getPath('appData'), 'pendiente');
+  const appDataRoot = app.getPath('appData');
+  const stableUserData = path.join(appDataRoot, 'pendiente');
+  const accidentalUserData = path.join(appDataRoot, 'Pendientes');
   fs.mkdirSync(stableUserData, { recursive: true });
+
+  // Compatibilidad con una ejecución previa de la v1.2 que pudo usar la carpeta plural.
+  const stableDb = path.join(stableUserData, 'pendientes.sqlite');
+  const accidentalDb = path.join(accidentalUserData, 'pendientes.sqlite');
+  if (!fs.existsSync(stableDb) && fs.existsSync(accidentalDb)) {
+    fs.copyFileSync(accidentalDb, stableDb);
+  }
+
   app.setPath('userData', stableUserData);
 
   openDatabase();
