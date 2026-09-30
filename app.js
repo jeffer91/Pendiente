@@ -7,18 +7,22 @@ const elements = {
   syncState: $('#syncState'),
   pendingViewButton: $('#pendingViewButton'),
   priorityViewButton: $('#priorityViewButton'),
+  uploadedViewButton: $('#uploadedViewButton'),
   pendingView: $('#pendingView'),
   priorityView: $('#priorityView'),
+  uploadedView: $('#uploadedView'),
+  pageTitle: $('#pageTitle'),
+  pageSubtitle: $('#pageSubtitle'),
   searchInput: $('#searchInput'),
   unitFilter: $('#unitFilter'),
   statusFilter: $('#statusFilter'),
   processFilter: $('#processFilter'),
+  moreFiltersButton: $('#moreFiltersButton'),
+  advancedFilters: $('#advancedFilters'),
   taskTableBody: $('#taskTableBody'),
   emptyState: $('#emptyState'),
   resultCount: $('#resultCount'),
-  statTotal: $('#statTotal'),
-  statPending: $('#statPending'),
-  statRealized: $('#statRealized'),
+  statActive: $('#statActive'),
   statSent: $('#statSent'),
   statUploaded: $('#statUploaded'),
   statOverdue: $('#statOverdue'),
@@ -27,6 +31,9 @@ const elements = {
   priorityMediumCount: $('#priorityMediumCount'),
   priorityLowCount: $('#priorityLowCount'),
   priorityBoard: $('#priorityBoard'),
+  uploadedTableBody: $('#uploadedTableBody'),
+  uploadedEmptyState: $('#uploadedEmptyState'),
+  uploadedCount: $('#uploadedCount'),
   newTaskButton: $('#newTaskButton'),
   exportButton: $('#exportButton'),
   taskDialog: $('#taskDialog'),
@@ -229,9 +236,8 @@ function applyDocumentPreset() {
 }
 
 function renderStats() {
-  elements.statTotal.textContent = state.tasks.length;
-  elements.statPending.textContent = state.tasks.filter((task) => task.status === 'pendiente').length;
-  elements.statRealized.textContent = state.tasks.filter((task) => task.status === 'realizado').length;
+  const active = state.tasks.filter((task) => task.status !== 'subido');
+  elements.statActive.textContent = active.length;
   elements.statSent.textContent = state.tasks.filter((task) => task.status === 'enviado_firmar').length;
   elements.statUploaded.textContent = state.tasks.filter((task) => task.status === 'subido').length;
   elements.statOverdue.textContent = state.tasks.filter(isOverdue).length;
@@ -245,6 +251,7 @@ function filteredTasks() {
 
   return state.tasks
     .filter((task) => {
+      if (task.status === 'subido') return false;
       if (unit && task.unit !== unit) return false;
       if (status && task.status !== status) return false;
       if (processCode && task.processCode !== processCode) return false;
@@ -289,20 +296,18 @@ function renderTable() {
     const status = STATUS_META[task.status] || STATUS_META.pendiente;
     const effective = effectivePriority(task);
     const effectiveMeta = PRIORITY_META[effective] || PRIORITY_META.media;
-    const manual = PRIORITY_META[task.priority] || PRIORITY_META.media;
     const autoRaised = PRIORITY_RANK[effective] > PRIORITY_RANK[task.priority || 'media'];
     const overdue = isOverdue(task);
-    const timeText = dueLabel(task);
 
     return `
       <tr data-id="${escapeHtml(task.id)}" class="${overdue ? 'row-overdue' : ''}">
         <td>
           <div class="doc-title">${escapeHtml(task.documentName || 'Sin nombre')}</div>
-          <div class="doc-code">${escapeHtml(task.documentCode || 'Sin código')}</div>
-        </td>
-        <td>
-          <div class="process-code">${escapeHtml(task.unit || '')} · ${escapeHtml(task.processCode || '')}</div>
-          <div class="process-name">${escapeHtml(task.processName || '')}</div>
+          <div class="doc-meta">
+            <span>${escapeHtml(task.unit || '')} · ${escapeHtml(task.processCode || '')}</span>
+            ${task.processName ? `<span class="separator">·</span><span>${escapeHtml(task.processName)}</span>` : ''}
+          </div>
+          ${task.documentCode ? `<div class="doc-code">${escapeHtml(task.documentCode)}</div>` : ''}
         </td>
         <td>
           <select class="quick-status ${status.className}" data-id="${escapeHtml(task.id)}" aria-label="Estado de ${escapeHtml(task.documentName || 'documento')}">
@@ -313,6 +318,12 @@ function renderTable() {
           </select>
         </td>
         <td>
+          <div class="date-inline">
+            <input class="quick-date" data-id="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.dueDate || '')}" aria-label="Fecha de entrega de ${escapeHtml(task.documentName || 'documento')}" />
+            <span class="due-note ${overdue ? 'overdue-date' : ''}">${escapeHtml(dueLabel(task))}</span>
+          </div>
+        </td>
+        <td>
           <div class="priority-inline">
             <select class="quick-priority" data-id="${escapeHtml(task.id)}" aria-label="Prioridad de ${escapeHtml(task.documentName || 'documento')}">
               <option value="maxima" ${task.priority === 'maxima' ? 'selected' : ''}>Máxima</option>
@@ -320,26 +331,18 @@ function renderTable() {
               <option value="media" ${task.priority === 'media' ? 'selected' : ''}>Media</option>
               <option value="baja" ${task.priority === 'baja' ? 'selected' : ''}>Baja</option>
             </select>
-            <span class="badge ${effectiveMeta.className}" title="Prioridad efectiva">${effectiveMeta.label}</span>
-          </div>
-          ${autoRaised ? `<div class="auto-priority-note">Automática · manual: ${manual.label}</div>` : ''}
-        </td>
-        <td>
-          <div class="date-inline">
-            <input class="quick-date" data-id="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.dueDate || '')}" aria-label="Fecha de entrega de ${escapeHtml(task.documentName || 'documento')}" />
-            <span class="due-note ${overdue ? 'overdue-date' : ''}">${escapeHtml(timeText)}</span>
+            ${autoRaised ? `<span class="auto-priority-note">${effectiveMeta.label} automática</span>` : ''}
           </div>
         </td>
         <td class="actions-cell">
           <div class="row-actions">
             <button class="mini-button edit-task" type="button" data-id="${escapeHtml(task.id)}">Editar</button>
-            <button class="mini-button delete delete-task" type="button" data-id="${escapeHtml(task.id)}">Eliminar</button>
+            <button class="mini-button delete delete-task" type="button" data-id="${escapeHtml(task.id)}" aria-label="Eliminar ${escapeHtml(task.documentName || 'documento')}">×</button>
           </div>
         </td>
       </tr>`;
   }).join('');
 }
-
 function renderPriorityView() {
   const active = state.tasks.filter((task) => task.status !== 'subido').sort((a, b) => {
     const priorityDiff = PRIORITY_RANK[effectivePriority(b)] - PRIORITY_RANK[effectivePriority(a)];
@@ -400,20 +403,69 @@ function renderPriorityView() {
   }).join('');
 }
 
+function renderUploadedView() {
+  const uploaded = state.tasks
+    .filter((task) => task.status === 'subido')
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+
+  elements.uploadedCount.textContent = `${uploaded.length} ${uploaded.length === 1 ? 'documento finalizado' : 'documentos finalizados'}`;
+  elements.uploadedEmptyState.classList.toggle('hidden', uploaded.length > 0);
+
+  elements.uploadedTableBody.innerHTML = uploaded.map((task) => `
+    <tr>
+      <td>
+        <div class="doc-title">${escapeHtml(task.documentName || 'Sin nombre')}</div>
+        ${task.documentCode ? `<div class="doc-code">${escapeHtml(task.documentCode)}</div>` : ''}
+      </td>
+      <td>
+        <div class="process-code">${escapeHtml(task.unit || '')} · ${escapeHtml(task.processCode || '')}</div>
+        <div class="process-name">${escapeHtml(task.processName || '')}</div>
+      </td>
+      <td>
+        <div class="date-inline">
+          <span>${escapeHtml(formatDate(task.dueDate))}</span>
+          <span class="due-note">Subido</span>
+        </div>
+      </td>
+      <td class="actions-cell">
+        <button class="mini-button edit-uploaded-task" type="button" data-id="${escapeHtml(task.id)}">Editar</button>
+      </td>
+    </tr>`
+  ).join('');
+}
 function setView(view) {
   state.view = view;
-  const priorities = view === 'prioridades';
-  elements.pendingView.classList.toggle('hidden', priorities);
-  elements.priorityView.classList.toggle('hidden', !priorities);
-  elements.pendingViewButton.classList.toggle('active', !priorities);
-  elements.priorityViewButton.classList.toggle('active', priorities);
-  if (priorities) renderPriorityView();
+  const isPending = view === 'pendientes';
+  const isPriority = view === 'prioridades';
+  const isUploaded = view === 'subidos';
+
+  elements.pendingView.classList.toggle('hidden', !isPending);
+  elements.priorityView.classList.toggle('hidden', !isPriority);
+  elements.uploadedView.classList.toggle('hidden', !isUploaded);
+
+  elements.pendingViewButton.classList.toggle('active', isPending);
+  elements.priorityViewButton.classList.toggle('active', isPriority);
+  elements.uploadedViewButton.classList.toggle('active', isUploaded);
+
+  if (isPending) {
+    elements.pageTitle.textContent = 'Pendientes';
+    elements.pageSubtitle.textContent = 'Documentos activos que todavía requieren gestión.';
+  } else if (isPriority) {
+    elements.pageTitle.textContent = 'Prioridades';
+    elements.pageSubtitle.textContent = 'Qué atender primero según prioridad y fecha de entrega.';
+    renderPriorityView();
+  } else {
+    elements.pageTitle.textContent = 'Subidos';
+    elements.pageSubtitle.textContent = 'Documentos cuyo proceso ya fue completado.';
+    renderUploadedView();
+  }
 }
 
 function render() {
   renderStats();
   renderTable();
   renderPriorityView();
+  renderUploadedView();
 }
 
 async function reloadTasks() {
@@ -552,7 +604,11 @@ async function removeTask(taskId) {
 }
 
 function exportCsv() {
-  const tasks = filteredTasks();
+  const tasks = state.view === 'subidos'
+    ? state.tasks.filter((task) => task.status === 'subido')
+    : state.view === 'prioridades'
+      ? state.tasks.filter((task) => task.status !== 'subido')
+      : filteredTasks();
 
   if (!tasks.length) {
     showToast('No hay registros para exportar.');
@@ -593,6 +649,12 @@ function exportCsv() {
 function setupEvents() {
   elements.pendingViewButton.addEventListener('click', () => setView('pendientes'));
   elements.priorityViewButton.addEventListener('click', () => setView('prioridades'));
+  elements.uploadedViewButton.addEventListener('click', () => setView('subidos'));
+  elements.moreFiltersButton.addEventListener('click', () => {
+    const opening = elements.advancedFilters.classList.contains('hidden');
+    elements.advancedFilters.classList.toggle('hidden', !opening);
+    elements.moreFiltersButton.classList.toggle('active', opening);
+  });
   elements.newTaskButton.addEventListener('click', openNewTask);
   elements.exportButton.addEventListener('click', exportCsv);
   elements.closeDialogButton.addEventListener('click', closeTaskDialog);
@@ -640,6 +702,11 @@ function setupEvents() {
 
   elements.priorityBoard.addEventListener('click', (event) => {
     const edit = event.target.closest('.edit-priority-task');
+    if (edit) openEditTask(edit.dataset.id);
+  });
+
+  elements.uploadedTableBody.addEventListener('click', (event) => {
+    const edit = event.target.closest('.edit-uploaded-task');
     if (edit) openEditTask(edit.dataset.id);
   });
 }
