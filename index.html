@@ -12,107 +12,146 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <main class="page-shell">
-    <section class="app-view">
-      <header class="topbar">
-        <div class="brand-row">
-          <img class="app-logo" src="./assets/icon.png" alt="" />
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="app-logo" src="./assets/icon.png" alt="" />
+        <div class="sidebar-brand-copy">
+          <strong>Pendientes</strong>
+          <span>UGPA · UTET</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Menú principal">
+        <button id="pendingViewButton" class="nav-button active" type="button">
+          <span class="nav-icon" aria-hidden="true">≡</span>
+          <span>Pendientes</span>
+        </button>
+        <button id="priorityViewButton" class="nav-button" type="button">
+          <span class="nav-icon" aria-hidden="true">!</span>
+          <span>Prioridades</span>
+        </button>
+        <button id="uploadedViewButton" class="nav-button" type="button">
+          <span class="nav-icon" aria-hidden="true">✓</span>
+          <span>Subidos</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="storage-card">
+          <span class="storage-dot" aria-hidden="true"></span>
           <div>
-            <p class="eyebrow">UGPA · UTET</p>
-            <div class="title-row">
-              <h1>Pendientes</h1>
-              <span id="syncState" class="sync-pill online">Base local</span>
-            </div>
-            <p class="muted compact">Control de documentos por proceso, estado, prioridad y fecha de entrega.</p>
+            <strong>Base local</strong>
+            <span id="dbLocation">SQLite</span>
           </div>
         </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="page-heading">
+          <p class="eyebrow">GESTIÓN DOCUMENTAL</p>
+          <h1 id="pageTitle">Pendientes</h1>
+          <p id="pageSubtitle" class="muted">Documentos activos que todavía requieren gestión.</p>
+        </div>
+
         <div class="topbar-actions">
-          <span id="dbLocation" class="user-chip">SQLite local</span>
+          <span id="syncState" class="sync-pill online">Base local</span>
+          <button id="exportButton" class="button secondary" type="button">Exportar</button>
+          <button id="newTaskButton" class="button primary" type="button">+ Nuevo pendiente</button>
         </div>
       </header>
 
-      <nav class="view-switcher" aria-label="Vistas">
-        <button id="pendingViewButton" class="view-button active" type="button">Pendientes</button>
-        <button id="priorityViewButton" class="view-button" type="button">Prioridades</button>
-      </nav>
-
-      <section class="stats-grid" aria-label="Resumen de pendientes">
-        <article class="stat-card"><span>Total</span><strong id="statTotal">0</strong></article>
-        <article class="stat-card"><span>Pendientes</span><strong id="statPending">0</strong></article>
-        <article class="stat-card"><span>Realizados</span><strong id="statRealized">0</strong></article>
-        <article class="stat-card"><span>Enviados a firmar</span><strong id="statSent">0</strong></article>
-        <article class="stat-card success"><span>Subidos</span><strong id="statUploaded">0</strong></article>
-        <article class="stat-card danger"><span>Vencidos</span><strong id="statOverdue">0</strong></article>
+      <section class="stats-grid" aria-label="Resumen">
+        <article class="stat-card">
+          <span>Activos</span>
+          <strong id="statActive">0</strong>
+          <small>Por gestionar</small>
+        </article>
+        <article class="stat-card danger">
+          <span>Vencidos</span>
+          <strong id="statOverdue">0</strong>
+          <small>Requieren atención</small>
+        </article>
+        <article class="stat-card">
+          <span>En firma</span>
+          <strong id="statSent">0</strong>
+          <small>Enviados a firmar</small>
+        </article>
+        <article class="stat-card success">
+          <span>Subidos</span>
+          <strong id="statUploaded">0</strong>
+          <small>Proceso completo</small>
+        </article>
       </section>
 
       <section id="pendingView" class="view-panel">
+        <section class="toolbar-card">
+          <div class="toolbar-primary">
+            <label class="search-field">
+              <span class="sr-only">Buscar</span>
+              <input id="searchInput" type="search" placeholder="Buscar documento, código o proceso…" />
+            </label>
 
-      <section class="toolbar-card">
-        <div class="toolbar-head">
-          <div>
-            <h2>Listado</h2>
-            <p id="resultCount" class="muted compact">0 registros</p>
+            <label class="compact-filter">
+              <span>Estado</span>
+              <select id="statusFilter">
+                <option value="">Todos</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="realizado">Realizado</option>
+                <option value="enviado_firmar">Enviado a firmar</option>
+              </select>
+            </label>
+
+            <label class="compact-filter">
+              <span>Unidad</span>
+              <select id="unitFilter">
+                <option value="">Todas</option>
+                <option value="UTET">UTET</option>
+                <option value="UGPA">UGPA</option>
+              </select>
+            </label>
+
+            <button id="moreFiltersButton" class="button filter-button" type="button">Más filtros</button>
           </div>
-          <div class="action-row">
-            <button id="exportButton" class="button secondary" type="button">Exportar CSV</button>
-            <button id="newTaskButton" class="button primary" type="button">+ Nuevo pendiente</button>
+
+          <div id="advancedFilters" class="advanced-filters hidden">
+            <label>
+              Proceso
+              <select id="processFilter">
+                <option value="">Todos los procesos</option>
+              </select>
+            </label>
           </div>
-        </div>
 
-        <div class="filters-grid">
-          <label class="search-field">
-            <span>Buscar</span>
-            <input id="searchInput" type="search" placeholder="Buscar documento, código o proceso…" />
-          </label>
-          <label>
-            Unidad
-            <select id="unitFilter">
-              <option value="">Todas</option>
-              <option value="UTET">UTET</option>
-              <option value="UGPA">UGPA</option>
-            </select>
-          </label>
-          <label>
-            Estado
-            <select id="statusFilter">
-              <option value="">Todos</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="realizado">Realizado</option>
-              <option value="enviado_firmar">Enviado a firmar</option>
-              <option value="subido">Subido</option>
-            </select>
-          </label>
-          <label>
-            Proceso
-            <select id="processFilter">
-              <option value="">Todos los procesos</option>
-            </select>
-          </label>
-        </div>
-      </section>
+          <div class="list-meta">
+            <strong>Documentos activos</strong>
+            <span id="resultCount">0 registros</span>
+          </div>
+        </section>
 
-      <section class="table-card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Documento</th>
-                <th>Proceso</th>
-                <th>Estado</th>
-                <th>Prioridad</th>
-                <th>Fecha de entrega</th>
-                <th class="actions-cell">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="taskTableBody"></tbody>
-          </table>
-        </div>
-        <div id="emptyState" class="empty-state hidden">
-          <div class="empty-icon">✓</div>
-          <h3>No hay registros con estos filtros</h3>
-          <p>Prueba cambiando los filtros o crea un nuevo pendiente.</p>
-        </div>
-      </section>
+        <section class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Documento</th>
+                  <th>Estado</th>
+                  <th>Entrega</th>
+                  <th>Prioridad</th>
+                  <th class="actions-cell">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="taskTableBody"></tbody>
+            </table>
+          </div>
+          <div id="emptyState" class="empty-state hidden">
+            <div class="empty-icon">✓</div>
+            <h3>No hay pendientes con estos filtros</h3>
+            <p>Prueba cambiando la búsqueda o los filtros.</p>
+          </div>
+        </section>
       </section>
 
       <section id="priorityView" class="view-panel hidden">
@@ -122,18 +161,48 @@
           <article class="priority-summary priority-medium"><span>Media</span><strong id="priorityMediumCount">0</strong></article>
           <article class="priority-summary priority-low"><span>Baja</span><strong id="priorityLowCount">0</strong></article>
         </section>
+
         <section class="priority-card-shell">
-          <div class="priority-head">
+          <div class="section-head">
             <div>
               <h2>Orden de atención</h2>
-              <p class="muted compact">Primero vencidos y fechas más cercanas. Los documentos subidos salen de esta vista.</p>
+              <p>Vencidos y fechas más cercanas aparecen primero.</p>
             </div>
           </div>
           <div id="priorityBoard" class="priority-board"></div>
         </section>
       </section>
-    </section>
-  </main>
+
+      <section id="uploadedView" class="view-panel hidden">
+        <section class="table-card">
+          <div class="section-head uploaded-head">
+            <div>
+              <h2>Documentos subidos</h2>
+              <p id="uploadedCount">0 documentos finalizados</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Documento</th>
+                  <th>Proceso</th>
+                  <th>Fecha de entrega</th>
+                  <th class="actions-cell">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="uploadedTableBody"></tbody>
+            </table>
+          </div>
+          <div id="uploadedEmptyState" class="empty-state hidden">
+            <div class="empty-icon">✓</div>
+            <h3>Aún no hay documentos subidos</h3>
+            <p>Cuando un pendiente pase a Subido aparecerá aquí.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
 
   <dialog id="taskDialog" class="task-dialog">
     <form id="taskForm" method="dialog">
@@ -146,6 +215,7 @@
       </div>
 
       <input id="taskId" type="hidden" />
+
       <div class="form-grid two-columns">
         <label>
           Unidad
@@ -164,10 +234,12 @@
         Documento
         <select id="taskDocumentSelect"></select>
       </label>
+
       <label>
         Nombre del documento / pendiente
         <input id="taskDocumentName" type="text" required maxlength="180" />
       </label>
+
       <label>
         Código o identificación
         <input id="taskDocumentCode" type="text" maxlength="180" />
@@ -200,7 +272,7 @@
 
       <label>
         Notas
-        <textarea id="taskNotes" rows="4" maxlength="1500" placeholder="Observaciones, responsable, dependencia, siguiente acción…"></textarea>
+        <textarea id="taskNotes" rows="4" maxlength="1500" placeholder="Observaciones, responsable, dependencia o siguiente acción…"></textarea>
       </label>
 
       <div class="dialog-actions">
@@ -212,7 +284,6 @@
   </dialog>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
   <script type="module" src="./app.js"></script>
 </body>
 </html>
