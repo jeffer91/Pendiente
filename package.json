@@ -1,16 +1,55 @@
 {
   "name": "pendiente",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Aplicación Electron con base SQLite local para control de pendientes UGPA y UTET.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis"
   },
   "author": "Jefferson Villarreal",
   "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.jeffer91.pendientes",
+    "productName": "Pendientes",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "catalog.js",
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "Pendientes-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Pendientes",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }
