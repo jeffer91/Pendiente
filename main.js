@@ -223,6 +223,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Mantener la misma carpeta de datos usada por las versiones anteriores.
+  // Así una actualización no crea una base nueva ni hace parecer que se perdieron los pendientes.
+  app.setPath('userData', path.join(app.getPath('appData'), 'pendiente'));
+
   openDatabase();
   registerDatabaseHandlers();
   createWindow();
